@@ -28,7 +28,7 @@ def listar_recursos():
 @app.get("/recursos/{nome}")
 def detalhe_recurso(nome: str):
     session = Session()
-    recurso = session.query(Recurso).filter(Recurso.nome.contains(nome)).first()
+    recurso = session.query(Recurso).filter(Recurso.nome.ilike(f"%{nome}%")).first()
     session.close()
 
     if recurso is None:
