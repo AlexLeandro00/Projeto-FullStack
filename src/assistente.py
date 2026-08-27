@@ -6,12 +6,39 @@ from models import Recurso
 from logica import calcular_dias_restantes
 import os
 import json
+from logica import calcular_dias_restantes
+from datetime import datetime
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 Session = sessionmaker(bind=engine)
 
 ferramentas = [
+    {
+        "type": "function",
+        "function": {
+            "name": "cadastrar_recurso",
+            "description": "Cadastra um novo recurso doméstico no sistema, com nome, intervalo médio de reposição em dias, e a data da última compra",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "nome": {
+                        "type": "string",
+                        "description": "Nome do recurso doméstico (ex: água, gás, areia de gato)"
+                    },
+                    "intervalo_medio_dias": {
+                        "type": "integer",
+                        "description": "De quantos em quantos dias, em média, esse recurso costuma ser reposto"
+                    },
+                    "data_ultima_compra": {
+                        "type": "string",
+                        "description": "Data da última compra no formato AAAA-MM-DD. Se o usuário não informar, use a data de hoje"
+                    }
+                },
+                "required": ["nome", "intervalo_medio_dias", "data_ultima_compra"]
+            }
+        }
+    },
     {
         "type": "function",
         "function": {
@@ -30,6 +57,23 @@ ferramentas = [
         }
     }
 ]
+
+
+def cadastrar_recurso(nome, intervalo_medio_dias, data_ultima_compra):
+    session = Session()
+    data_convertida = datetime.strptime(data_ultima_compra, "%Y-%m-%d").date()
+    novo_recurso = Recurso(
+        nome=nome,
+        intervalo_medio_dias=intervalo_medio_dias,
+        data_ultima_compra=data_convertida,
+        id_contato=None
+    )
+    session.add(novo_recurso)
+    session.commit()
+    session.refresh(novo_recurso)
+    session.close()
+    return {"id": novo_recurso.id, "nome": novo_recurso.nome, "mensagem": "Recurso cadastrado com sucesso!"}
+
 
 def consultar_dias_restantes(nome_recurso):
     session = Session()
@@ -70,6 +114,12 @@ def conversar(pergunta_usuario):
 
         if nome_funcao == "calcular_dias_restantes":
             resultado =  consultar_dias_restantes(argumentos["nome_recurso"])
+        elif nome_funcao == "cadastrar_recurso":
+            resultado = cadastrar_recurso(
+                argumentos["nome"],
+                argumentos["intervalo_medio_dias"],
+                argumentos["data_ultima_compra"]
+            )
 
         mensagens.append(mensagem_ia)
         mensagens.append({
